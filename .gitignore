@@ -1,7 +1,6 @@
 vision
-startPing
-stopPing
 images/*fps*
+*.mjpeg
 
 build/
 obj/
