@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <cmath>
 #include <thread>
+#include <stdexcept>
 
 #include "udp_client_server.h"
 
@@ -48,7 +49,6 @@ const char GET_SIGNAL = 'G';
 const char RESUME_SIGNAL = 'R';
 const char PAUSE_SIGNAL = 'P';
 
-
 void drawBoundedRects(cv::Mat& src, double focalLen, int d, int h, int contoursThresh, double sideRatio, double areaRatio, double minArea, double maxArea, double sideThreshold, double areaThreshold, double angleThreshold, double& hypotenuse, double& pitch, double& yaw);
 double calcHypotenuse (cv::Point2f rectPoints[4], double focalLen, int dist, int height);
 double calcYaw(int screenWidth, double xDist, std::vector<cv::Point> corners, cv::Point2f& mc);
@@ -61,6 +61,7 @@ void receivePing (udp_client_server::udp_server& server);
 void sendData (udp_client_server::udp_client& client);
 void drawData(cv::Mat& image, double distance, double yaw, double pitch);
 void shapeThreshold(std::vector<std::vector<cv::Point> >& contours, std::vector<cv::RotatedRect>& rect, double sideRatio, double areaRatio, double minArea, double maxArea, double sideThreshold, double areaThreshold, double angleThreshold, int& goalInd);
+void mjpgStream(cv::Mat& img);
 
 void shapeThreshold(std::vector<std::vector<cv::Point> >& contours, std::vector<cv::RotatedRect>& rect, double sideRatio, double areaRatio, double minArea, double maxArea, double sideThreshold, double areaThreshold, double angleThreshold, int& goalInd)
 {
@@ -276,20 +277,118 @@ double getInitialVelocity (int height, double distance, double pitch)
     return std::sqrt(2 * GRAVITY * height / std::sin(pitch));
 }
 
+void mjpgStream(cv::Mat& img)
+{
+    // Video writing for mjpgStreamer
+    bool isOutputColored = true;
+    int imgSizeX = 640;
+    int imgSizeY = 480;
+    int stream_fps = 30;
+    std::string outFile = "./images/mjpgs/main.mjpeg";
+
+    cv::VideoWriter os (outFile.c_str(), CV_FOURCC('M', 'J', 'P', 'G'), stream_fps, cv::Size(imgSizeX, imgSizeY), isOutputColored);
+
+    if (os.isOpened())
+        os.write(img);
+    else
+        throw std::runtime_error(std::string("Error: Could not write to ") + outFile);
+}
+
+void sendData (udp_client_server::udp_client& client)
+{
+    double loopTime = 1.0 / LOOPS_PER_SEC;
+    std::string msg;
+
+    while (true)
+    {
+        // Stop sending data if an agreed symbol is received
+        //if (buff[0] == START_SIGNAL || buff[0] == GET_SIGNAL)
+        if (buff[0] != STOP_SIGNAL)
+        {
+            //clock_t start = clock();
+            // Check if the angles are not NaN or inf and within restrictions
+            if ((buff[0] == GET_SIGNAL || buff[0] == START_SIGNAL) && std::isfinite(yaw) && std::isfinite(pitch) && std::abs(yaw) < 45.0 && pitch < 90.0)
+            {
+                msg = std::to_string(yaw) + " " + std::to_string(pitch);
+                std::cerr << "Sent Data:  " << msg << "\n";
+                client.send(msg.c_str(), strlen(msg.c_str()));
+            }
+            else
+            {
+                std::cerr << "Data not sent, buff = " << buff << "\n";
+            }
+            // Stop until receiving another start signal
+            buff[0] = STOP_SIGNAL;
+
+            /*
+            clock_t end = clock();
+            double timeElapsed = (double) (end - start) / CLOCKS_PER_SEC;	
+
+            // Pause until loop ends
+            if (timeElapsed < loopTime)
+            {
+                unsigned int microseconds = static_cast<int>((loopTime - timeElapsed) * MICROSEC_TO_SEC);
+                //std::cerr << "Loop took " << timeElapsed << " seconds and stalling for " << static_cast<double>(microseconds) / MICROSEC_TO_SEC << " seconds\n";
+                usleep(microseconds);
+            }
+            // Not on time
+            else 
+            {
+                //std::cerr << "Loop took " << timeElapsed << " seconds and new FPS = " << fps << " [ERROR]\n";
+            }
+            */
+        }
+    }
+}
+
+void receiveData (udp_client_server::udp_server& server)
+{
+    int maxBufferSize = 15;
+    int maxWaitSec = 100;
+    while (true)
+    {
+        // Receive data from non-blocking server
+        server.timed_recv(buff, maxBufferSize, maxWaitSec);
+        std::cerr << "Received Data: " << buff << "\n";
+        if (buff[0] == STOP_SIGNAL)
+            std::cerr << "STOP_SIGNAL\n";
+        else if (buff[0] == START_SIGNAL)
+            std::cerr << "START_SIGNAL\n";
+        else if (buff[0] == GET_SIGNAL)
+            std::cerr << "GET_SIGNAL\n";
+        else if (buff[0] == RESUME_SIGNAL)
+            std::cerr << "RESUME_SIGNAL\n";
+        else if (buff[0] == PAUSE_SIGNAL)
+            std::cerr << "PAUSE_SIGNAL\n";
+    }
+}
+
+void receivePing (udp_client_server::udp_server& server)
+{
+    int maxBufferSize = 1;
+    int maxWaitSec = 1;
+    while (buff[0] != START_SIGNAL)
+    {
+        // Receive data from non-blocking server
+        server.timed_recv(buff, maxBufferSize, maxWaitSec);
+    }
+    std::cerr << "Received start signal: " << buff << "\n";
+}
+
 int main( int argc, char *argv[])
 {
 	// gaussianBlur parameters
 	int blur_ksize = 7;
-	int sigmaX = 25;
-	int sigmaY = 25;
+	int sigmaX = 10;
+	int sigmaY = 10;
 
 	// hsvColorThreshold parameters
 	int hMin = 135;
 	int hMax = 180;
 	int sMin = 0;
 	int sMax = 100;
-	int vMin = 80;
-	int vMax = 100;
+	int vMin = 60;
+	int vMax = 90;
 	int debugMode = 0;
 	// 0 is none, 1 is bitAnd between h, s, and v
 	int bitAnd = 1;
@@ -334,7 +433,7 @@ int main( int argc, char *argv[])
     netSend.detach();
     std::thread netReceive (receiveData, std::ref(server));
     netReceive.detach();
-
+    
 	cv::VideoCapture camera (CAMERA_NUM);
     if (!camera.isOpened())
     {
@@ -347,32 +446,34 @@ int main( int argc, char *argv[])
     std::chrono::high_resolution_clock::time_point end;
     cv::Mat image;
     char kill = ' ';
-	while ((kill != 'q'))
+
+	while (kill != 'q')
 	{
-        if (FPS)
-        {
-            start = std::chrono::high_resolution_clock::now();
-        }
+        if (FPS) start = std::chrono::high_resolution_clock::now();
+
 		camera >> image;
-        if (DEBUG)
-		    cv::imshow("RGB", image);
-		gaussianBlur(image, blur_ksize, sigmaX, sigmaY);
-		hsvColorThreshold(image, hMin, hMax, sMin, sMax, vMin, vMax, debugMode, bitAnd);
-		drawBoundedRects(image, FOCAL_LENGTH, CALIB_DIST, height, contoursThresh, sideRatio, areaRatio, minArea, maxArea, sideThreshold, areaThreshold, angleThreshold, calcDist, pitch, yaw);
+        if (DEBUG) cv::imshow("RGB", image);
+
+        gaussianBlur(image, blur_ksize, sigmaX, sigmaY);
+        hsvColorThreshold(image, hMin, hMax, sMin, sMax, vMin, vMax, debugMode, bitAnd);
+        drawBoundedRects(image, FOCAL_LENGTH, CALIB_DIST, height, contoursThresh, sideRatio, areaRatio, minArea, maxArea, sideThreshold, areaThreshold, angleThreshold, calcDist, pitch, yaw);
         drawData(image, CALIB_DIST, yaw, pitch);
-        if (DEBUG)
-            cv::imshow("Final", image);
+
+        // Send image to mjpg-streamer
+        mjpgStream(image);
+
+        if (DEBUG) cv::imshow("Final", image);
         if (FPS)
         {
             end = std::chrono::high_resolution_clock::now();
             std::chrono::duration<double> timeElapsed = std::chrono::duration_cast<std::chrono::duration<double>>(end - start);
             fps = 1.0 / timeElapsed.count();
 
-            fprintf(pipe_gp, "%f %f\n", fpsTick, fps);
+            fprintf(pipe_gp, "%f %f\n", fpsTick, static_cast<double>(fps));
             avg += fps;
             fpsTick++;
         }
-		kill = cv:: waitKey(5);
+		kill = cv::waitKey(5);
 	}
     if (FPS)
     {
@@ -383,82 +484,4 @@ int main( int argc, char *argv[])
         pclose(pipe_gp);
     }
 	return 0;	
-}
-
-void sendData (udp_client_server::udp_client& client)
-{
-    double loopTime = 1.0 / LOOPS_PER_SEC;
-    std::string msg;
-
-    while (true)
-    {
-        // Stop sending data if an agreed symbol is received
-        if (buff[0] != STOP_SIGNAL)
-        {
-            clock_t start = clock();
-            // Check if the angles are not NaN or inf and within restrictions
-            if ((buff[0] == GET_SIGNAL || buff[0] == START_SIGNAL) && std::isfinite(yaw) && std::isfinite(pitch) && std::abs(yaw) < 30.0 && pitch < 90.0)
-            {
-
-                msg = std::to_string(yaw) + " " + std::to_string(pitch);
-                std::cerr << "Sent Data:  " << msg << "\n";
-                client.send(msg.c_str(), strlen(msg.c_str()));
-            }
-            else
-            {
-                std::cerr << "Data not sent, buff = " << buff << "\n";
-            }
-
-            clock_t end = clock();
-            double timeElapsed = (double) (end - start) / CLOCKS_PER_SEC;	
-
-            // Pause until loop ends
-            if (timeElapsed < loopTime)
-            {
-                unsigned int microseconds = static_cast<int>((loopTime - timeElapsed) * MICROSEC_TO_SEC);
-                //std::cerr << "Loop took " << timeElapsed << " seconds and stalling for " << static_cast<double>(microseconds) / MICROSEC_TO_SEC << " seconds\n";
-                usleep(microseconds);
-            }
-            // Not on time
-            else 
-            {
-                //std::cerr << "Loop took " << timeElapsed << " seconds and new FPS = " << fps << " [ERROR]\n";
-            }
-        }
-    }
-}
-
-void receiveData (udp_client_server::udp_server& server)
-{
-    int maxBufferSize = 15;
-    int maxWaitSec = 1;
-    while (true)
-    {
-        // Receive data from non-blocking server
-        server.timed_recv(buff, maxBufferSize, maxWaitSec);
-        std::cerr << "Received Data: " << buff << "\n";
-        if (buff[0] == STOP_SIGNAL)
-            std::cerr << "STOP_SIGNAL\n";
-        else if (buff[0] == START_SIGNAL)
-            std::cerr << "START_SIGNAL\n";
-        else if (buff[0] == GET_SIGNAL)
-            std::cerr << "GET_SIGNAL\n";
-        else if (buff[0] == RESUME_SIGNAL)
-            std::cerr << "RESUME_SIGNAL\n";
-        else if (buff[0] == PAUSE_SIGNAL)
-            std::cerr << "PAUSE_SIGNAL\n";
-    }
-}
-
-void receivePing (udp_client_server::udp_server& server)
-{
-    int maxBufferSize = 1;
-    int maxWaitSec = 1;
-    char buff [] = "0";
-    while (buff[0] != START_SIGNAL)
-    {
-        // Receive data from non-blocking server
-        server.timed_recv(buff, maxBufferSize, maxWaitSec);
-    }
-    std::cerr << "Received start signal: " << buff << "\n";
 }

@@ -38,6 +38,7 @@ void houghCirclesWindows(cv::Mat& img, int& hcMinRadius, int& hcMaxRadius, int& 
 void houghCircles(cv::Mat& img, int hcMinRadius, int hcMaxRadius, int& threshLow, int& threshHigh);
 void shapeThreshold(cv::Mat& src, std::vector<std::vector<cv::Point> >& contour, std::vector<cv::RotatedRect>& rect, int s, int a, int minA, int maxA, int sideT, int areaT, int angleT, int& goalInd);
 void shapeThresholdWindows(cv::Mat& output, std::vector<std::vector<cv::Point> >& contours, std::vector<cv::RotatedRect>& rect, int& sideRatio, int& areaRatio, int& minArea, int& maxArea, int& sideThreshold, int& areaThreshold, int& angleThreshold, int& apply, int& visible, int& goalInd);
+void mjpgStream(cv::Mat& img);
 
 void shapeThresholdWindows(cv::Mat& output, std::vector<std::vector<cv::Point> >& contours, std::vector<cv::RotatedRect>& rect, int& sideRatio, int& areaRatio, int& minArea, int& maxArea, int& sideThreshold, int& areaThreshold, int& angleThreshold, int& apply, int& visible, int& goalInd)
 {
@@ -63,8 +64,8 @@ void shapeThresholdWindows(cv::Mat& output, std::vector<std::vector<cv::Point> >
 		shapeThreshold(output, contours, rect, sideRatio, areaRatio, minArea, maxArea, sideThreshold, areaThreshold, angleThreshold, goalInd);
         if (visible)
         {
-            cv::namedWindow("Shape Threshold Output", CV_WINDOW_AUTOSIZE);
-            cv::imshow("Shape Threshold Output", output);
+            //cv::namedWindow("Shape Threshold Output", CV_WINDOW_AUTOSIZE);
+            //cv::imshow("Shape Threshold Output", output);
         }
 	}
 	else
@@ -163,8 +164,8 @@ void drawBoundedRectsWindows(cv::Mat& output, double focalLen, int& d, int& h, i
 		drawBoundedRects(output, focalLen, d, h, calib, contoursThresh, sideRatio, areaRatio, minArea, maxArea, sideThreshold, areaThreshold, angleThreshold, shapeThresholdApply, shapeThresholdVisible);
         if (visible)
         {
-            cv::namedWindow("Distance and Shooting Angles Output", CV_WINDOW_AUTOSIZE);
-            cv::imshow("Distance and Shooting Angles Output", output);
+            //cv::namedWindow("Distance and Shooting Angles Output", CV_WINDOW_AUTOSIZE);
+            //cv::imshow("Distance and Shooting Angles Output", output);
         }
 	}
 	else
@@ -424,6 +425,23 @@ void houghCircles(cv::Mat& img, int hcMinRadius, int hcMaxRadius, int& threshLow
    	}
 }
 
+void mjpgStream(cv::Mat& img)
+{
+    // Video writing for mjpgStreamer
+    bool isOutputColored = true;
+    int imgSizeX = 640;
+    int imgSizeY = 480;
+    int stream_fps = 30;
+    std::string outFile = "./images/mjpgs/main.mjpeg";
+
+    cv::VideoWriter os (outFile.c_str(), CV_FOURCC('M', 'J', 'P', 'G'), stream_fps, cv::Size(imgSizeX, imgSizeY), isOutputColored);
+
+    if (os.isOpened())
+        os.write(img);
+    else
+        throw std::runtime_error(std::string("Error: Could not write to ") + outFile);
+}
+
 int main( int argc, char *argv[])
 {
 	// Parameters for selecting which filters to apply
@@ -458,47 +476,24 @@ int main( int argc, char *argv[])
 	int sigmaY = 10;
 
 	// hsvColorThreshold parameters
-	int hMin = 90;
-	int hMax = 180;
+	int hMin = 0;
+	int hMax = 300;
 	int sMin = 0;
-	int sMax = 100;
-	int vMin = 80;
+	int sMax = 20;
+	int vMin = 90;
 	int vMax = 100;
 	int debugMode = 0;
 	// 0 is none, 1 is bitAnd between h, s, and v
 	int bitAnd = 1;
 
-	// dilateErode parameters
-	int holes = 0;
-	int noise = 0;
-	int size = 1;
-	cv::Mat element = cv::getStructuringElement(cv::MORPH_CROSS,
-					  cv::Size(2 * size + 1, 2 * size + 1), 
-					  cv::Point(size, size) );
-	
-	// cannyEdgeDetect parameters
-	int threshLow = 100;
-	int threshHigh = 245;
-	
-	// laplaci
-	int laplacian_ksize = 3;
-	// optional scale value added to image
-	int scale = 1;
-	// optional delta value added to image
-	int delta = 0;
-	int ddepth = CV_16S;
-	
-	// houghLines parameters
-	int rho = 1;
-	int theta = 180;
-	int threshold = 50;
-	int lineMin = 50;
-	int maxGap = 10;		
 
-	// houghCircles parameters
-	int hcMinRadius = 116;
-	int hcMaxRadius = 212;	
-
+    // dilateErode parameters
+    int holes = 0;
+    int noise = 0;
+    int size = 1;
+    cv::Mat element = cv::getStructuringElement(cv::MORPH_CROSS,
+                                                cv::Size(2 * size + 1, 2 * size + 1),
+                                                cv::Point(size, size));
 	// mergeFinal parameters
 	int weight1 = 100;
 	int weight2 = 100;
@@ -520,37 +515,12 @@ int main( int argc, char *argv[])
     int areaT = 20;
     int angleT = 40;
 
-	std::cerr << "\n";
-    std::cerr << " =========== FILTER LIST =========== " << "\n";
-    std::cerr << "|                                   |" << "\n";
-    std::cerr << "| (0) No Filter                     |" << "\n";
-    std::cerr << "| (1) Gaussian Blur Filter          |" << "\n";
-    std::cerr << "| (2) HSV Color Filter              |" << "\n";
-    std::cerr << "| (3) Dilate and Erode Filter       |" << "\n";
-    std::cerr << "| (4) Canny Edge Detection Filter   |" << "\n";
-    std::cerr << "| (5) Laplacian Sharpen Filter      |" << "\n";
-    std::cerr << "| (6) Hough Lines Filter            |" << "\n";
-    std::cerr << "| (7) Merge Final Outputs           |" << "\n";
-    std::cerr << "| (8) Distance and Shooting Angles  |" << "\n";
-    std::cerr << "|                                   |" << "\n";
-    std::cerr << " =================================== " << "\n";
-    std::cerr << "\n";
-
-    std::cerr << "\n";
-    std::cerr << " ============== NOTICE ============= " << "\n";
-    std::cerr << "|                                   |" << "\n";
-    std::cerr << "| Press 'q' to quit without saving  |" << "\n";
-    std::cerr << "| Press ' ' to pause                |" << "\n";
-    std::cerr << "|                                   |" << "\n";
-    std::cerr << " =================================== " << "\n";
-    std::cerr << "\n";
-
 	int port = 0;
 	cv::VideoCapture camera;
 	do
 	{
-		std::cerr << "Enter the port number of the camera (-1 to quit): ";
-		std::cin >> port;
+		//std::cerr << "Enter the port number of the camera (-1 to quit): ";
+		//std::cin >> port;
 
 		// Reprompt if user enters invalid input
 		if (port <= 10 && port >= 0)
@@ -599,16 +569,23 @@ int main( int argc, char *argv[])
 		rgb.copyTo(image);
 		//cv::imshow("BGR Feed", rgb);
 
+        if (!blur && !color && !dilate_erode && !edge && !laplacian && !hough && !depth_dist && !merge && !boundedRects && !houghCircles && !shapeThreshold)
+            mjpgStream(image);
 		// Filters are only applied if last parameter is true, otherwise their windows are destroyed
 		gaussianBlurWindows(image, blur_ksize, sigmaX, sigmaY, apply_blur, blur);
+        if (blur) mjpgStream(image);
 		hsvColorThresholdWindows(image, hMin, hMax, sMin, sMax, vMin, vMax, debugMode, bitAnd, apply_color, color);
+        if (color) mjpgStream(image);
 		dilateErodeWindows(image, element, holes, noise, apply_dilate_erode, dilate_erode);
-		cannyEdgeDetectWindows(image, threshLow, threshHigh, apply_edge, edge);
-		laplacianSharpenWindows(image, ddepth, laplacian_ksize, scale, delta, apply_laplacian, laplacian);
-		houghLinesWindows(image, rho, theta, threshold, lineMin, maxGap, apply_hough, hough);
-		houghCirclesWindows(image, hcMinRadius, hcMaxRadius, threshLow, threshHigh, houghCircles, applyHoughCircles);
+        if (dilate_erode) mjpgStream(image);
+		//cannyEdgeDetectWindows(image, threshLow, threshHigh, apply_edge, edge);
+		//laplacianSharpenWindows(image, ddepth, laplacian_ksize, scale, delta, apply_laplacian, laplacian);
+		//houghLinesWindows(image, rho, theta, threshold, lineMin, maxGap, apply_hough, hough);
+		//houghCirclesWindows(image, hcMinRadius, hcMaxRadius, threshLow, threshHigh, houghCircles, applyHoughCircles);
 		drawBoundedRectsWindows(image, focalLen, calibDist, height, calibStatus, contoursThresh, applyBoundedRects, boundedRects, s, a, minA, maxA, sideT, areaT, angleT, applyShapeThreshold, shapeThreshold);
+        if (shapeThreshold) mjpgStream(image);
 		mergeFinalWindows(rgb, image, weight1, weight2, apply_merge, merge);
+        if (merge) mjpgStream(image);
 		kill = cv:: waitKey(5);
 		
 	}
