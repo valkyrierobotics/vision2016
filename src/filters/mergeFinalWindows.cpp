@@ -21,8 +21,8 @@ void mergeFinalWindows(cv::Mat& color_orig, cv::Mat& final_img, int& weight1, in
 		mergeFinal(color_orig, final_img, weight1, weight2);
         if (visible)
         {
-            cv::namedWindow("Merge Final Output", cv::WINDOW_AUTOSIZE);
-            cv::imshow("Merge Final Output", final_img);
+            //cv::namedWindow("Merge Final Output", cv::WINDOW_AUTOSIZE);
+            //cv::imshow("Merge Final Output", final_img);
         }
 	}
 	else

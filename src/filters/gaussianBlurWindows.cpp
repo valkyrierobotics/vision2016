@@ -21,8 +21,8 @@ void gaussianBlurWindows(cv::Mat &output, int &blur_ksize, int &sigmaX, int &sig
 		gaussianBlur(output, blur_ksize, sigmaX, sigmaY);
         if (visible)
         {
-            cv::namedWindow("Gaussian Blur Output", cv::WINDOW_AUTOSIZE);
-            cv::imshow("Gaussian Blur Output", output);
+            //cv::namedWindow("Gaussian Blur Output", cv::WINDOW_AUTOSIZE);
+            //cv::imshow("Gaussian Blur Output", output);
         }
 	}
 	else

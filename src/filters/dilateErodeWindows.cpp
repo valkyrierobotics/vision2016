@@ -20,8 +20,8 @@ void dilateErodeWindows(cv::Mat &output, cv::Mat &element, int &holes, int &nois
 		dilateErode(output, element, holes, noise);
         if (visible)
         {
-            cv::namedWindow("Dilate and Erode Output", cv::WINDOW_AUTOSIZE);
-            cv::imshow("Dilate and Erode Output", output);
+            //cv::namedWindow("Dilate and Erode Output", cv::WINDOW_AUTOSIZE);
+            //cv::imshow("Dilate and Erode Output", output);
         }
 	}
 	else
