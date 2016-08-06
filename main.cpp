@@ -212,7 +212,7 @@ std::vector<cv::Point> corners (std::vector<cv::Point>& pts, int screenWidth, in
 // Calculate the pitch for a straight line of sight to the tower goal
 double calcPitch(int height, int dist)
 {
-	return ((static_cast<double>(height) / dist) * 180 / PI);
+	return std::asin(static_cast<double>(height) / dist) * 180 / PI;
 }
 
 // Calculate the yaw to turn relative to the current yaw
@@ -248,7 +248,6 @@ double calcHypotenuse (cv::Point2f rectPoints[4], double focalLen, int dist, int
 		wPixel = width;
     }
 	d = (wReal * focalLen) / wPixel;
-	theta = asin(static_cast<double>(height) / dist) * 180 / PI;
 	return d;
 }
 
