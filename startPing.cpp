@@ -5,8 +5,6 @@
 
 #include "udp_client_server.h"
 
-void sendPing (udp_client_server::udp_client& client);
-
 void sendPing (udp_client_server::udp_client& client)
 {
     std::string msg = "@";
