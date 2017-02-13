@@ -62,6 +62,7 @@ void sendData (udp_client_server::udp_client& client);
 void drawData(cv::Mat& image, double distance, double yaw, double pitch);
 void shapeThreshold(std::vector<std::vector<cv::Point> >& contours, std::vector<cv::RotatedRect>& rect, double sideRatio, double areaRatio, double minArea, double maxArea, double sideThreshold, double areaThreshold, double angleThreshold, int& goalInd);
 void mjpgStream(cv::Mat& img);
+void sendData(y2017::vision::vision_message *vison_writer, struct& message);
 
 void shapeThreshold(std::vector<std::vector<cv::Point> >& contours, std::vector<cv::RotatedRect>& rect, double sideRatio, double areaRatio, double minArea, double maxArea, double sideThreshold, double areaThreshold, double angleThreshold, int& goalInd)
 {
@@ -373,6 +374,27 @@ void receivePing (udp_client_server::udp_server& server)
     }
     std::cerr << "Received start signal: " << buff << "\n";
 }
+
+//r = distance, theta = heading and phi = angular displacement relative to the target
+void sendData(y2017::vision::vision_message *vison_writer, struct& message) {
+    const int PORT = 5810;
+    const int IP_ADDRESS = 2.9.9.2;//ip: 2.9.9.2
+    udp_client_server::udp_client server server(buff, IP_ADDRESS, PORT);
+    
+    vision_writer->set_yaw(std::stof(message.heading);
+                           vision_writer->set_angular_displacement(std::stof(message.phi));
+                           vision_writer->set_distance(std::stof(message.r));
+                           vision_writer->set_image_timespamp(message.img_timestamp));
+    vision_writer->set_message_timestamp(message.msg_timestamp));
+    
+    ostream::ostream output;
+    if (!vison_writer->SerializeToOstream(&output)) {
+        std::cerr << "Unable to send data through udp" << std::endl;
+    } else {
+        server.send(output.c_str(), strlen(output.c_str()));
+    }
+}
+
 
 int main( int argc, char *argv[])
 {

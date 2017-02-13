@@ -1,0 +1,7 @@
+message vision_message {
+    required float yaw = 0;
+    required float angular_displacement = 1;
+    required float distance = 2;
+    required string image_timestamp = 4;
+    required string message_timestamp = 5;
+}
