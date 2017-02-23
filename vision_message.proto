@@ -1,3 +1,6 @@
+syntax="proto2"
+
+package udpsender;
 message vision_message {
     required float yaw = 0;
     required float angular_displacement = 1;
